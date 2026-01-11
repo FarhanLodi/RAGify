@@ -10,13 +10,12 @@
     <Version>1.0.0</Version>
     <Authors>Farhan Lodi</Authors>
     <Product>RAGify</Product>
-    <Description>Core interfaces and contracts for RAGify - A production-ready RAG framework for .NET</Description>
+    <Description>Core interfaces and contracts for RAGify. Provides the foundation for building custom implementations of embedding providers, vector stores, chunking strategies, and retrieval engines. Use this package when extending RAGify with your own implementations.</Description>
     <PackageTags>rag;retrieval-augmented-generation;embeddings;vector-search;nlp;ai;machine-learning</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/FarhanLodi/RAGify</RepositoryUrl>
-    <PackageProjectUrl>https://github.com/FarhanLodi/RAGify</PackageProjectUrl>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 

@@ -8,16 +8,14 @@
     <!-- NuGet Package Metadata -->
     <PackageId>RAGify.Chunking</PackageId>
     <Version>1.0.0</Version>
-    <Authors>RAGify Contributors</Authors>
-    <Company>RAGify</Company>
+    <Authors>Farhan Lodi</Authors>
     <Product>RAGify</Product>
-    <Description>Text chunking strategies for RAGify including fixed-size, sentence-aware, and sliding window approaches</Description>
+    <Description>Intelligent text chunking strategies for RAGify. Break down large documents into optimal-sized chunks for embedding and retrieval. Includes fixed-size chunking, sentence-aware chunking, and sliding window approaches to preserve context and improve retrieval accuracy.</Description>
     <PackageTags>rag;retrieval-augmented-generation;embeddings;vector-search;nlp;ai;machine-learning;chunking;text-processing</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/yourusername/RAGify</RepositoryUrl>
-    <PackageProjectUrl>https://github.com/yourusername/RAGify</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/FarhanLodi/RAGify</RepositoryUrl>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 

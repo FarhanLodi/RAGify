@@ -8,16 +8,14 @@
     <!-- NuGet Package Metadata -->
     <PackageId>RAGify.Retrieval</PackageId>
     <Version>1.0.0</Version>
-    <Authors>RAGify Contributors</Authors>
-    <Company>RAGify</Company>
+    <Authors>Farhan Lodi</Authors>
     <Product>RAGify</Product>
-    <Description>Retrieval engine for RAGify with query embedding, similarity search, and metadata filtering</Description>
+    <Description>Retrieval engine for RAGify. Perform semantic search by embedding user queries and finding the most relevant document chunks using similarity search. Includes support for metadata filtering, result ranking, and configurable retrieval strategies to improve answer quality in your RAG applications.</Description>
     <PackageTags>rag;retrieval-augmented-generation;embeddings;vector-search;nlp;ai;machine-learning;retrieval;similarity-search</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/yourusername/RAGify</RepositoryUrl>
-    <PackageProjectUrl>https://github.com/yourusername/RAGify</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/FarhanLodi/RAGify</RepositoryUrl>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 

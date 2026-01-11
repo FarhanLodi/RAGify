@@ -8,16 +8,14 @@
     <!-- NuGet Package Metadata -->
     <PackageId>RAGify.Embeddings</PackageId>
     <Version>1.0.0</Version>
-    <Authors>RAGify Contributors</Authors>
-    <Company>RAGify</Company>
+    <Authors>Farhan Lodi</Authors>
     <Product>RAGify</Product>
-    <Description>RAGify.Embeddings - Embedding provider implementations for RAGify. Supports OpenAI, Azure OpenAI, Ollama, ONNX, Hugging Face, Cohere, VoyageAI, and Google Gemini embedding providers.</Description>
+    <Description>Embedding provider implementations for RAGify. Convert text into high-dimensional vectors using popular embedding models including OpenAI, Azure OpenAI, Ollama, ONNX (local models), Hugging Face, Cohere, VoyageAI, and Google Gemini. Easily switch between providers or use multiple providers in the same application.</Description>
     <PackageTags>rag;retrieval-augmented-generation;embeddings;vector-search;nlp;ai;machine-learning;openai;ollama;onnx;huggingface;cohere;voyageai;gemini;dotnet</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/yourusername/RAGify</RepositoryUrl>
-    <PackageProjectUrl>https://github.com/yourusername/RAGify</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/FarhanLodi/RAGify</RepositoryUrl>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 

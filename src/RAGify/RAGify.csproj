@@ -10,7 +10,7 @@
     <Version>1.0.0</Version>
     <Authors>Farhan Lodi</Authors>
     <Product>RAGify</Product>
-    <Description>RAGify - A production-ready RAG framework for .NET. This is the main package that includes all components (Abstractions, Core, Ingestion, Chunking, Embeddings, VectorStores, Retrieval). Individual libraries are also available separately.</Description>
+    <Description>A RAG (Retrieval-Augmented Generation) framework for .NET. Build intelligent applications with document ingestion, text chunking, embedding generation, vector storage, and semantic search. Includes all RAGify components in one package. Individual modules are also available as separate packages for fine-grained control.</Description>
     <PackageTags>rag;retrieval-augmented-generation;embeddings;vector-search;nlp;ai;machine-learning;rag-framework;dotnet</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
