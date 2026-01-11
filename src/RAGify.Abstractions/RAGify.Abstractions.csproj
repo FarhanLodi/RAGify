@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    
+    <!-- NuGet Package Metadata -->
+    <PackageId>RAGify.Abstractions</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Farhan Lodi</Authors>
+    <Product>RAGify</Product>
+    <Description>Core interfaces and contracts for RAGify - A production-ready RAG framework for .NET</Description>
+    <PackageTags>rag;retrieval-augmented-generation;embeddings;vector-search;nlp;ai;machine-learning</PackageTags>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/FarhanLodi/RAGify</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/FarhanLodi/RAGify</PackageProjectUrl>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\assets\RAGify.png" Pack="true" PackagePath="icon.png" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="README.md" />
+  </ItemGroup>
+
+</Project>

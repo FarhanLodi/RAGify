@@ -1,0 +1,41 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    
+    <!-- NuGet Package Metadata -->
+    <PackageId>RAGify.Ingestion</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>RAGify Contributors</Authors>
+    <Company>RAGify</Company>
+    <Product>RAGify</Product>
+    <Description>Document ingestion services for RAGify with support for PDF, Word, Excel, HTML, and plain text files</Description>
+    <PackageTags>rag;retrieval-augmented-generation;embeddings;vector-search;nlp;ai;machine-learning;document-ingestion;pdf;word;excel</PackageTags>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/yourusername/RAGify</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/yourusername/RAGify</PackageProjectUrl>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RAGify.Abstractions\RAGify.Abstractions.csproj" />
+    <ProjectReference Include="..\RAGify.Core\RAGify.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.4.1" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
+    <PackageReference Include="UglyToad.PdfPig" Version="1.7.0-custom-5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\assets\RAGify.png" Pack="true" PackagePath="icon.png" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="README.md" />
+  </ItemGroup>
+
+</Project>
