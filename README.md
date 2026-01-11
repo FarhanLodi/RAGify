@@ -5,9 +5,9 @@
 # RAGify
 
 [![NuGet](https://img.shields.io/nuget/v/RAGify.svg)](https://www.nuget.org/packages/RAGify)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/RAGify.svg)](https://www.nuget.org/packages/RAGify)
 [![.NET](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com/download)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 
 Build powerful RAG applications in .NET with ease. RAGify is a modular, production-ready framework that simplifies document ingestion, intelligent chunking, vector embeddings, and semantic search. Switch between 8+ embedding providers, customize chunking strategies, and scale from prototype to production—all with a clean, intuitive API.
 
@@ -1216,11 +1216,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by modern RAG architectures and best practices
 - Thanks to all embedding provider teams for their excellent APIs
 
-## 📞 Support
+## 💖 Donations
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/RAGify/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/RAGify/discussions)
-- **Documentation**: [Full Documentation](https://github.com/yourusername/RAGify/wiki)
+If you find this project useful and want to support its development, you can contribute using any of the methods below:
+
+💳 **PayPal** — [paypal.me/FarhanLodi](https://paypal.me/FarhanLodi)
+
+📱 **UPI (India)** — `farhanlodi5@oksbi`
 
 ---
 
