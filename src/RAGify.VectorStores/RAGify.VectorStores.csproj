@@ -7,7 +7,7 @@
     
     <!-- NuGet Package Metadata -->
     <PackageId>RAGify.VectorStores</PackageId>
-    <Version>1.0.0</Version>
+    <Version>2.0.0</Version>
     <Authors>Farhan Lodi</Authors>
     <Product>RAGify</Product>
     <Description>Vector storage implementations for RAGify. Store and search high-dimensional embeddings efficiently with support for in-memory storage, PostgreSQL (pgvector), Pinecone, and Weaviate. Includes extensible interfaces for custom vector store implementations.</Description>

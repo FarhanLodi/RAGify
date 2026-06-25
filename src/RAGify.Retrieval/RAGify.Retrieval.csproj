@@ -7,7 +7,7 @@
     
     <!-- NuGet Package Metadata -->
     <PackageId>RAGify.Retrieval</PackageId>
-    <Version>1.0.0</Version>
+    <Version>2.0.0</Version>
     <Authors>Farhan Lodi</Authors>
     <Product>RAGify</Product>
     <Description>Retrieval engine for RAGify. Perform semantic search by embedding user queries and finding the most relevant document chunks using similarity search. Includes support for metadata filtering, result ranking, and configurable retrieval strategies to improve answer quality in your RAG applications.</Description>

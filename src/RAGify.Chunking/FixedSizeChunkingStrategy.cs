@@ -52,23 +52,38 @@ public class FixedSizeChunkingStrategy : IChunkingStrategy
         int start = 0;
         int chunkIndex = 0;
 
+        // Clamp the overlap to strictly less than the chunk size so the loop always
+        // makes forward progress, even when OverlapSize >= ChunkSize.
+        int effectiveOverlap = _options.OverlapSize;
+        if (effectiveOverlap >= _options.ChunkSize)
+            effectiveOverlap = _options.ChunkSize - 1;
+        if (effectiveOverlap < 0)
+            effectiveOverlap = 0;
+
         while (start < text.Length)
         {
             int end = Math.Min(start + _options.ChunkSize, text.Length);
             string chunkText = text.Substring(start, end - start);
 
-            var chunk = Chunk.Create(
-                chunkText,
-                chunkIndex,
-                document.DocumentId,
-                new Dictionary<string, object>(document.Metadata)
-            );
+            if (!string.IsNullOrWhiteSpace(chunkText))
+            {
+                var chunk = Chunk.Create(
+                    chunkText,
+                    chunkIndex,
+                    document.DocumentId,
+                    new Dictionary<string, object>(document.Metadata)
+                );
 
-            chunks.Add(chunk);
+                chunks.Add(chunk);
+                chunkIndex++;
+            }
 
-            start = end - _options.OverlapSize;
-            if (start >= end) start = end;
-            chunkIndex++;
+            // Once a chunk reaches the end of the text, stop. Stepping back by the
+            // overlap here would only emit a duplicate tail of the previous chunk.
+            if (end >= text.Length)
+                break;
+
+            start = end - effectiveOverlap;
         }
 
         _logger?.LogInformation("Document {DocumentId} split into {ChunkCount} chunks using fixed-size strategy", 

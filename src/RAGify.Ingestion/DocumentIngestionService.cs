@@ -25,7 +25,7 @@ public class DocumentIngestionService
     #region Public-Methods
 
     /// <summary>
-    /// Creates a DocumentIngestionService with all default extractors (PDF, Word, Excel, HTML, PlainText).
+    /// Creates a DocumentIngestionService with all default extractors (PDF, Word, Excel, HTML, Markdown, CSV, JSON, PlainText).
     /// </summary>
     /// <returns>A new DocumentIngestionService instance with default extractors.</returns>
     public static DocumentIngestionService CreateDefault()
@@ -36,6 +36,9 @@ public class DocumentIngestionService
             new WordExtractor(),
             new ExcelExtractor(),
             new HtmlExtractor(),
+            new MarkdownExtractor(),
+            new CsvExtractor(),
+            new JsonExtractor(),
             new PlainTextExtractor()
         });
     }
@@ -68,7 +71,7 @@ public class DocumentIngestionService
         if (extractor == null)
         {
             var extension = Path.GetExtension(filePath).ToLowerInvariant();
-            var supportedExtensions = new[] { ".pdf", ".docx", ".xlsx", ".html", ".htm", ".txt", ".md", ".csv", ".log" };
+            var supportedExtensions = new[] { ".pdf", ".docx", ".xlsx", ".html", ".htm", ".md", ".markdown", ".csv", ".tsv", ".json", ".jsonl", ".txt", ".log" };
             
             _logger?.LogError("No extractor found for file: {FilePath} with extension: {Extension}", filePath, extension);
             throw new NotSupportedException(
@@ -163,6 +166,38 @@ public class DocumentIngestionService
             : source;
         _logger?.LogDebug("Created document {DocumentId} from text", docId);
         return Document.FromText(text, docId, sourceName, metadata);
+    }
+
+    /// <summary>
+    /// Ingests a document from a web page URL by fetching and extracting its readable text.
+    /// </summary>
+    /// <param name="url">The URL of the web page to ingest.</param>
+    /// <param name="documentId">Optional document ID. If not provided, a GUID will be generated.</param>
+    /// <param name="metadata">Optional metadata to associate with the document.</param>
+    /// <param name="cancellationToken">A cancellation token to cancel the operation.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the ingested document.</returns>
+    public async Task<IDocument> IngestFromUrlAsync(
+        string url,
+        string? documentId = null,
+        Dictionary<string, object>? metadata = null,
+        CancellationToken cancellationToken = default)
+    {
+        _logger?.LogInformation("Ingesting document from URL: {Url}", url);
+
+        using var extractor = new WebPageExtractor();
+        var content = await extractor.ExtractAsync(url, cancellationToken);
+        var docId = documentId ?? Guid.NewGuid().ToString();
+
+        _logger?.LogInformation("Successfully ingested URL {Url} as document {DocumentId} with {ContentLength} characters",
+            url, docId, content.Length);
+
+        return new Document
+        {
+            DocumentId = docId,
+            Content = content,
+            Source = url,
+            Metadata = metadata ?? new Dictionary<string, object>()
+        };
     }
 
     #endregion

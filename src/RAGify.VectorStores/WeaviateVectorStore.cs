@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -144,61 +145,173 @@ public class WeaviateVectorStore : IVectorStore
 
         var normalizedQuery = VectorMath.Normalize(queryVector);
 
-        var whereClause = (object?)null;
-        if (filter != null && filter.Filters.Count > 0)
-        {
-            var conditions = filter.Filters.Select(kvp => new
-            {
-                path = new[] { kvp.Key },
-                operatorEnum = "Equal",
-                valueString = kvp.Value.ToString()
-            }).ToList();
+        // Build the GraphQL query and POST it to the real Weaviate search endpoint.
+        var graphqlQuery = BuildSearchGraphQlQuery(normalizedQuery, topK, filter);
 
-            if (conditions.Count == 1)
+        var requestBody = new { query = graphqlQuery };
+        var json = JsonSerializer.Serialize(requestBody);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var response = await _httpClient.PostAsync($"{_baseUrl}/v1/graphql", content, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        return ParseSearchResponse(responseStream, threshold);
+    }
+
+    /// <summary>
+    /// Builds the GraphQL <c>Get</c> query for a nearVector search, including an
+    /// optional <c>where</c> filter and the properties to retrieve.
+    /// </summary>
+    private string BuildSearchGraphQlQuery(float[] normalizedQuery, int topK, MetadataFilter? filter)
+    {
+        // The vector literal must be formatted with InvariantCulture so a comma-decimal
+        // locale does not corrupt the GraphQL numbers.
+        var vectorLiteral = string.Join(", ", normalizedQuery.Select(v => v.ToString("R", CultureInfo.InvariantCulture)));
+
+        // Determine which properties to request. Always request DocumentId (declared in
+        // the schema) plus any keys referenced by the filter so the result is self-describing.
+        var propertyNames = new List<string> { "DocumentId" };
+        if (filter != null)
+        {
+            foreach (var key in filter.Filters.Keys)
             {
-                whereClause = conditions[0];
-            }
-            else
-            {
-                whereClause = new
-                {
-                    operatorEnum = "And",
-                    operands = conditions
-                };
+                if (!string.IsNullOrEmpty(key) && !propertyNames.Contains(key))
+                    propertyNames.Add(key);
             }
         }
 
-        var request = new
-        {
-            @class = _className,
-            vector = normalizedQuery,
-            limit = topK,
-            where = whereClause,
-            additional = new
-            {
-                certainty = threshold
-            }
-        };
+        var propertiesSelection = string.Join(" ", propertyNames);
 
-        var json = JsonSerializer.Serialize(request, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-        var response = await _httpClient.PostAsync($"{_baseUrl}/v1/query", content, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        var whereArgument = BuildWhereArgument(filter);
+        var arguments = $"nearVector: {{ vector: [{vectorLiteral}] }}, limit: {topK.ToString(CultureInfo.InvariantCulture)}{whereArgument}";
 
-        var result = await response.Content.ReadFromJsonAsync<WeaviateQueryResponse>(cancellationToken: cancellationToken);
-        
-        if (result?.Data?.Get == null || result.Data.Get.Items == null)
-            return Array.Empty<VectorSearchResult>();
+        return $"{{ Get {{ {_className}({arguments}) {{ {propertiesSelection} _additional {{ id certainty distance }} }} }} }}";
+    }
 
-        return result.Data.Get.Items
-            .Where(item => item.Additional?.Certainty >= threshold)
-            .Select(item => new VectorSearchResult
-            {
-                VectorId = item.Id ?? string.Empty,
-                Similarity = item.Additional?.Certainty ?? 0.0,
-                Metadata = item.Properties ?? new Dictionary<string, object>()
-            })
+    /// <summary>
+    /// Builds the GraphQL <c>where</c> argument fragment for the supplied filter, or an
+    /// empty string when no filter is present.
+    /// </summary>
+    private static string BuildWhereArgument(MetadataFilter? filter)
+    {
+        if (filter == null || filter.Filters.Count == 0)
+            return string.Empty;
+
+        var operands = filter.Filters
+            .Select(kvp => $"{{ path: [\"{EscapeGraphQlString(kvp.Key)}\"], operator: Equal, valueText: \"{EscapeGraphQlString(kvp.Value?.ToString() ?? string.Empty)}\" }}")
             .ToList();
+
+        string whereBody;
+        if (operands.Count == 1)
+        {
+            whereBody = operands[0];
+        }
+        else
+        {
+            whereBody = $"{{ operator: And, operands: [{string.Join(", ", operands)}] }}";
+        }
+
+        return $", where: {whereBody}";
+    }
+
+    /// <summary>
+    /// Parses the GraphQL search response and projects it into search results,
+    /// applying the certainty threshold client-side.
+    /// </summary>
+    private List<VectorSearchResult> ParseSearchResponse(Stream responseStream, double threshold)
+    {
+        var results = new List<VectorSearchResult>();
+
+        using var document = JsonDocument.Parse(responseStream);
+        var root = document.RootElement;
+
+        if (!root.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Object)
+            return results;
+
+        if (!data.TryGetProperty("Get", out var get) || get.ValueKind != JsonValueKind.Object)
+            return results;
+
+        if (!get.TryGetProperty(_className, out var items) || items.ValueKind != JsonValueKind.Array)
+            return results;
+
+        foreach (var item in items.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+                continue;
+
+            string vectorId = string.Empty;
+            double certainty = 0.0;
+
+            if (item.TryGetProperty("_additional", out var additional) && additional.ValueKind == JsonValueKind.Object)
+            {
+                if (additional.TryGetProperty("id", out var idElement) && idElement.ValueKind == JsonValueKind.String)
+                    vectorId = idElement.GetString() ?? string.Empty;
+
+                if (additional.TryGetProperty("certainty", out var certaintyElement) &&
+                    certaintyElement.ValueKind == JsonValueKind.Number)
+                    certainty = certaintyElement.GetDouble();
+            }
+
+            // Apply the threshold client-side.
+            if (certainty < threshold)
+                continue;
+
+            // Reconstruct the metadata dictionary from every returned scalar property
+            // (everything except the GraphQL-internal "_additional" block).
+            var metadata = new Dictionary<string, object>();
+            foreach (var property in item.EnumerateObject())
+            {
+                if (property.NameEquals("_additional"))
+                    continue;
+
+                var value = ConvertJsonElement(property.Value);
+                if (value != null)
+                    metadata[property.Name] = value;
+            }
+
+            results.Add(new VectorSearchResult
+            {
+                VectorId = vectorId,
+                Similarity = certainty,
+                Metadata = metadata
+            });
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Converts a JSON property value into a plain CLR object for the metadata dictionary.
+    /// </summary>
+    private static object? ConvertJsonElement(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.String:
+                return element.GetString();
+            case JsonValueKind.Number:
+                if (element.TryGetInt64(out var longValue))
+                    return longValue;
+                return element.GetDouble();
+            case JsonValueKind.True:
+            case JsonValueKind.False:
+                return element.GetBoolean();
+            case JsonValueKind.Null:
+            case JsonValueKind.Undefined:
+                return null;
+            default:
+                return element.GetRawText();
+        }
+    }
+
+    /// <summary>
+    /// Escapes a string for safe embedding inside a GraphQL double-quoted literal.
+    /// </summary>
+    private static string EscapeGraphQlString(string value)
+    {
+        return value
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"");
     }
 
     /// <summary>
@@ -285,33 +398,6 @@ public class WeaviateVectorStore : IVectorStore
     private class WeaviateBatchRequest
     {
         public List<WeaviateObject> Objects { get; set; } = new();
-    }
-
-    private class WeaviateQueryResponse
-    {
-        public WeaviateQueryData? Data { get; set; }
-    }
-
-    private class WeaviateQueryData
-    {
-        public WeaviateQueryGet? Get { get; set; }
-    }
-
-    private class WeaviateQueryGet
-    {
-        public List<WeaviateQueryItem>? Items { get; set; }
-    }
-
-    private class WeaviateQueryItem
-    {
-        public string? Id { get; set; }
-        public Dictionary<string, object>? Properties { get; set; }
-        public WeaviateAdditional? Additional { get; set; }
-    }
-
-    private class WeaviateAdditional
-    {
-        public double Certainty { get; set; }
     }
 
     private class WeaviateListResponse

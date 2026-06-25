@@ -33,6 +33,26 @@ public interface IRagify
     Task<QueryResult> QueryAsync(string query, QueryOptions? options = null, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Retrieves relevant context and generates a grounded natural-language answer for the query.
+    /// Requires an LLM provider to be configured; otherwise an <see cref="InvalidOperationException"/> is thrown.
+    /// </summary>
+    /// <param name="query">The question to answer.</param>
+    /// <param name="options">Optional query options for customizing retrieval and generation behavior.</param>
+    /// <param name="cancellationToken">A cancellation token to cancel the operation.</param>
+    /// <returns>A task whose result contains the generated answer along with the retrieved context.</returns>
+    Task<QueryResult> AnswerAsync(string query, QueryOptions? options = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves relevant context and streams a grounded natural-language answer token-by-token.
+    /// Requires an LLM provider to be configured; otherwise an <see cref="InvalidOperationException"/> is thrown.
+    /// </summary>
+    /// <param name="query">The question to answer.</param>
+    /// <param name="options">Optional query options for customizing retrieval and generation behavior.</param>
+    /// <param name="cancellationToken">A cancellation token to cancel the operation.</param>
+    /// <returns>An asynchronous stream of incremental answer fragments.</returns>
+    IAsyncEnumerable<string> StreamAnswerAsync(string query, QueryOptions? options = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets a list of all document IDs that have been indexed.
     /// </summary>
     /// <param name="cancellationToken">A cancellation token to cancel the operation.</param>

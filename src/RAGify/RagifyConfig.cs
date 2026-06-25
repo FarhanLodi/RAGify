@@ -13,7 +13,7 @@ namespace RAGify;
 /// <summary>
 /// Fluent configuration API for setting up and creating a RAG orchestrator.
 /// </summary>
-public class RagifyConfig
+public partial class RagifyConfig
 {
     #region Private-Members
 
@@ -25,6 +25,13 @@ public class RagifyConfig
     private TextCleanupOptions _textCleanupOptions = new();
     private List<IDocumentExtractor> _extractors = new();
     private ILogger<Ragify>? _logger;
+
+    // Optional pipeline components (configured via partial-class extension files).
+    private ILlmProvider? _llmProvider;
+    private GenerationOptions? _generationOptions;
+    private IReranker? _reranker;
+    private IEmbeddingCache? _embeddingCache;
+    private string? _embeddingCacheNamespace;
 
     #endregion
 
@@ -47,6 +54,9 @@ public class RagifyConfig
             ChunkingStrategyType.FixedSize => new FixedSizeChunkingStrategy(_chunkingOptions, null),
             ChunkingStrategyType.SentenceAware => new SentenceAwareChunkingStrategy(_chunkingOptions, null),
             ChunkingStrategyType.SlidingWindow => new SlidingWindowChunkingStrategy(_chunkingOptions, null),
+            ChunkingStrategyType.Recursive => new RecursiveCharacterChunkingStrategy(_chunkingOptions, null),
+            ChunkingStrategyType.Markdown => new MarkdownChunkingStrategy(_chunkingOptions, null),
+            ChunkingStrategyType.TokenAware => new TokenAwareChunkingStrategy(_chunkingOptions, null),
             _ => throw new ArgumentException($"Unknown chunking strategy: {strategy}")
         };
 
@@ -283,6 +293,9 @@ public class RagifyConfig
         _extractors.Add(new WordExtractor());
         _extractors.Add(new ExcelExtractor());
         _extractors.Add(new HtmlExtractor());
+        _extractors.Add(new MarkdownExtractor());
+        _extractors.Add(new CsvExtractor());
+        _extractors.Add(new JsonExtractor());
         _extractors.Add(new PlainTextExtractor());
         return this;
     }
@@ -314,15 +327,22 @@ public class RagifyConfig
         if (_vectorStore == null)
             throw new InvalidOperationException("Vector store must be configured. Call WithVectorStore() or WithInMemoryVectorStore().");
 
-        _retrievalEngine ??= new RetrievalEngine(_embeddingProvider, _vectorStore, null);
+        // Decorate the embedding provider with a cache if one was configured.
+        var embeddingProvider = _embeddingCache != null
+            ? new CachingEmbeddingProvider(_embeddingProvider, _embeddingCache, _embeddingCacheNamespace)
+            : _embeddingProvider;
+
+        _retrievalEngine ??= new RetrievalEngine(embeddingProvider, _vectorStore, null, _reranker);
 
         return new Ragify(
             _chunkingStrategy,
-            _embeddingProvider,
+            embeddingProvider,
             _vectorStore,
             _retrievalEngine,
             _textCleanupOptions,
-            _logger);
+            _logger,
+            _llmProvider,
+            _generationOptions);
     }
 
     #endregion

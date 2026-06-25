@@ -14,6 +14,7 @@ public class RetrievalEngine : IRetrievalEngine
     private readonly IEmbeddingProvider _embeddingProvider;
     private readonly IVectorStore _vectorStore;
     private readonly ILogger<RetrievalEngine>? _logger;
+    private readonly IReranker? _reranker;
     private readonly Dictionary<string, IChunk> _chunkCache = new();
     private static readonly Regex FactQuestionPattern = new Regex(
         @"\b(what|who|when|where|which|how many|how much)\b",
@@ -24,11 +25,16 @@ public class RetrievalEngine : IRetrievalEngine
 
     #endregion
 
-    public RetrievalEngine(IEmbeddingProvider embeddingProvider, IVectorStore vectorStore, ILogger<RetrievalEngine>? logger = null)
+    public RetrievalEngine(
+        IEmbeddingProvider embeddingProvider,
+        IVectorStore vectorStore,
+        ILogger<RetrievalEngine>? logger = null,
+        IReranker? reranker = null)
     {
         _embeddingProvider = embeddingProvider ?? throw new ArgumentNullException(nameof(embeddingProvider));
         _vectorStore = vectorStore ?? throw new ArgumentNullException(nameof(vectorStore));
         _logger = logger;
+        _reranker = reranker;
     }
 
     #region Public-Methods
@@ -55,6 +61,16 @@ public class RetrievalEngine : IRetrievalEngine
             RegisterChunk(chunk);
         }
         _logger?.LogDebug("Registered {ChunkCount} chunks", chunkList.Count);
+    }
+
+    /// <summary>
+    /// Removes all registered chunks from the in-process chunk cache.
+    /// Should be called when the underlying index is cleared so stale chunks are not returned.
+    /// </summary>
+    public void ClearCache()
+    {
+        _chunkCache.Clear();
+        _logger?.LogDebug("Cleared retrieval chunk cache");
     }
 
     /// <summary>
@@ -117,9 +133,7 @@ public class RetrievalEngine : IRetrievalEngine
         var filteredResults = FilterLowValueChunks(retrievalResults, effectiveThreshold);
         _logger?.LogDebug("Filtered to {FilteredCount} chunks after low-value filtering", filteredResults.Count);
 
-        var finalResults = options.EnableDeduplication
-            ? DeduplicateResults(filteredResults, effectiveTopK)
-            : filteredResults.Take(effectiveTopK).ToList();
+        var finalResults = await SelectFinalResultsAsync(query, filteredResults, options, effectiveTopK, cancellationToken);
 
         _logger?.LogInformation("Retrieved {FinalCount} results for query (deduplication: {DeduplicationEnabled})", 
             finalResults.Count, options.EnableDeduplication);
@@ -187,9 +201,7 @@ public class RetrievalEngine : IRetrievalEngine
         var filteredResults = FilterLowValueChunks(retrievalResults, effectiveThreshold);
         _logger?.LogDebug("Filtered to {FilteredCount} chunks after low-value filtering", filteredResults.Count);
 
-        var finalResults = options.EnableDeduplication
-            ? DeduplicateResults(filteredResults, effectiveTopK)
-            : filteredResults.Take(effectiveTopK).ToList();
+        var finalResults = await SelectFinalResultsAsync(query, filteredResults, options, effectiveTopK, cancellationToken);
 
         var metadata = new RetrievalMetadata
         {
@@ -277,6 +289,77 @@ public class RetrievalEngine : IRetrievalEngine
         }
 
         return filtered;
+    }
+
+    private async Task<IReadOnlyList<RetrievalResult>> SelectFinalResultsAsync(
+        string query,
+        List<RetrievalResult> filteredResults,
+        RetrievalOptions options,
+        int effectiveTopK,
+        CancellationToken cancellationToken)
+    {
+        if (filteredResults.Count == 0)
+            return filteredResults;
+
+        if (_reranker != null)
+        {
+            try
+            {
+                var documents = filteredResults.Select(r => r.Chunk.Text).ToList();
+                var reranked = await _reranker.RerankAsync(
+                    query, documents, Math.Max(effectiveTopK, filteredResults.Count), cancellationToken);
+
+                var ordered = new List<RetrievalResult>(reranked.Count);
+                foreach (var rr in reranked)
+                {
+                    if (rr.Index >= 0 && rr.Index < filteredResults.Count)
+                        ordered.Add(filteredResults[rr.Index]);
+                }
+
+                if (ordered.Count == 0)
+                    ordered = filteredResults;
+
+                _logger?.LogDebug("Reranked {Count} candidates", ordered.Count);
+
+                return options.EnableDeduplication
+                    ? DeduplicateInOrder(ordered, effectiveTopK)
+                    : ordered.Take(effectiveTopK).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Reranking failed; falling back to similarity ordering");
+            }
+        }
+
+        return options.EnableDeduplication
+            ? DeduplicateResults(filteredResults, effectiveTopK)
+            : filteredResults.Take(effectiveTopK).ToList();
+    }
+
+    private static List<RetrievalResult> DeduplicateInOrder(
+        IReadOnlyList<RetrievalResult> results,
+        int maxResults)
+    {
+        var deduplicated = new List<RetrievalResult>();
+        var seenTexts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seenSemanticFingerprints = new List<string>();
+
+        foreach (var result in results)
+        {
+            var chunkText = result.Chunk.Text.Trim();
+
+            if (IsDuplicate(chunkText, seenTexts, seenSemanticFingerprints))
+                continue;
+
+            seenTexts.Add(NormalizeForComparison(chunkText));
+            seenSemanticFingerprints.Add(CreateSemanticFingerprint(chunkText));
+            deduplicated.Add(result);
+
+            if (deduplicated.Count >= maxResults)
+                break;
+        }
+
+        return deduplicated;
     }
 
     private static IReadOnlyList<RetrievalResult> DeduplicateResults(

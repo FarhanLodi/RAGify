@@ -1,8 +1,10 @@
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using RAGify.Abstractions;
 using RAGify.Chunking;
 using RAGify.Core;
 using RAGify.Embeddings;
+using RAGify.Generation;
 using RAGify.Ingestion;
 using RAGify.Retrieval;
 using RAGify.VectorStores;
@@ -22,6 +24,9 @@ public class Ragify : IRagify
     private readonly IRetrievalEngine _retrievalEngine;
     private readonly TextCleanupOptions _textCleanupOptions;
     private readonly ILogger<Ragify>? _logger;
+    private readonly ILlmProvider? _llmProvider;
+    private readonly GenerationOptions _generationOptions;
+    private readonly RagPromptBuilder _promptBuilder = new();
     private readonly Dictionary<string, IDocument> _documents = new();
     private readonly Dictionary<string, IChunk> _chunks = new();
 
@@ -33,7 +38,9 @@ public class Ragify : IRagify
         IVectorStore vectorStore,
         IRetrievalEngine retrievalEngine,
         TextCleanupOptions? textCleanupOptions = null,
-        ILogger<Ragify>? logger = null)
+        ILogger<Ragify>? logger = null,
+        ILlmProvider? llmProvider = null,
+        GenerationOptions? generationOptions = null)
     {
         _chunkingStrategy = chunkingStrategy ?? throw new ArgumentNullException(nameof(chunkingStrategy));
         _embeddingProvider = embeddingProvider ?? throw new ArgumentNullException(nameof(embeddingProvider));
@@ -41,6 +48,8 @@ public class Ragify : IRagify
         _retrievalEngine = retrievalEngine ?? throw new ArgumentNullException(nameof(retrievalEngine));
         _textCleanupOptions = textCleanupOptions ?? new TextCleanupOptions();
         _logger = logger;
+        _llmProvider = llmProvider;
+        _generationOptions = generationOptions ?? new GenerationOptions();
     }
 
     #region Public-Methods
@@ -180,6 +189,77 @@ public class Ragify : IRagify
     }
 
     /// <summary>
+    /// Retrieves relevant context and generates a grounded natural-language answer for the query.
+    /// </summary>
+    /// <param name="query">The question to answer.</param>
+    /// <param name="options">Optional query options for customizing retrieval and generation behavior.</param>
+    /// <param name="cancellationToken">A cancellation token to cancel the operation.</param>
+    /// <returns>A task whose result contains the generated answer along with the retrieved context.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when no LLM provider has been configured.</exception>
+    public async Task<QueryResult> AnswerAsync(
+        string query,
+        QueryOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureLlmConfigured();
+
+        var queryResult = await QueryAsync(query, options, cancellationToken);
+        var generationOptions = options?.Generation ?? _generationOptions;
+        var messages = _promptBuilder.Build(query, queryResult.Context, generationOptions);
+        var chatOptions = new ChatOptions
+        {
+            Temperature = generationOptions.Temperature,
+            MaxTokens = generationOptions.MaxTokens
+        };
+
+        _logger?.LogInformation("Generating answer using {ContextCount} retrieved chunks", queryResult.Context.Count);
+        var completion = await _llmProvider!.CompleteAsync(messages, chatOptions, cancellationToken);
+
+        queryResult.Answer = completion.Content;
+        queryResult.Generation = new GenerationMetadata
+        {
+            Model = completion.Model,
+            PromptTokens = completion.PromptTokens,
+            CompletionTokens = completion.CompletionTokens,
+            FinishReason = completion.FinishReason
+        };
+
+        _logger?.LogInformation("Answer generated ({CompletionTokens} completion tokens)", completion.CompletionTokens);
+        return queryResult;
+    }
+
+    /// <summary>
+    /// Retrieves relevant context and streams a grounded natural-language answer token-by-token.
+    /// </summary>
+    /// <param name="query">The question to answer.</param>
+    /// <param name="options">Optional query options for customizing retrieval and generation behavior.</param>
+    /// <param name="cancellationToken">A cancellation token to cancel the operation.</param>
+    /// <returns>An asynchronous stream of incremental answer fragments.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when no LLM provider has been configured.</exception>
+    public async IAsyncEnumerable<string> StreamAnswerAsync(
+        string query,
+        QueryOptions? options = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        EnsureLlmConfigured();
+
+        var queryResult = await QueryAsync(query, options, cancellationToken);
+        var generationOptions = options?.Generation ?? _generationOptions;
+        var messages = _promptBuilder.Build(query, queryResult.Context, generationOptions);
+        var chatOptions = new ChatOptions
+        {
+            Temperature = generationOptions.Temperature,
+            MaxTokens = generationOptions.MaxTokens
+        };
+
+        _logger?.LogInformation("Streaming answer using {ContextCount} retrieved chunks", queryResult.Context.Count);
+        await foreach (var fragment in _llmProvider!.StreamAsync(messages, chatOptions, cancellationToken))
+        {
+            yield return fragment;
+        }
+    }
+
+    /// <summary>
     /// Gets a list of all document IDs that have been indexed.
     /// </summary>
     /// <param name="cancellationToken">A cancellation token to cancel the operation.</param>
@@ -215,8 +295,30 @@ public class Ragify : IRagify
         _logger?.LogInformation("Clearing all documents and chunks from the RAG system");
         _documents.Clear();
         _chunks.Clear();
+
+        // Clear the retrieval engine's chunk cache so stale chunks are not returned after a reset.
+        if (_retrievalEngine is Retrieval.RetrievalEngine retrievalEngine)
+        {
+            retrievalEngine.ClearCache();
+        }
+
         await _vectorStore.ClearAsync(cancellationToken);
         _logger?.LogInformation("Successfully cleared all data from the RAG system");
+    }
+
+    #endregion
+
+    #region Private-Methods
+
+    private void EnsureLlmConfigured()
+    {
+        if (_llmProvider == null)
+        {
+            throw new InvalidOperationException(
+                "No LLM provider is configured. Call one of the chat-provider builder methods " +
+                "(WithOpenAIChat(), WithAzureOpenAIChat(), WithAnthropicChat(), WithOllamaChat()) " +
+                "or WithLlm() before using AnswerAsync()/StreamAnswerAsync().");
+        }
     }
 
     #endregion

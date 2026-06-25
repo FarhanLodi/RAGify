@@ -14,7 +14,10 @@ public class SentenceAwareChunkingStrategy : IChunkingStrategy
 
     private readonly ChunkingOptions _options;
     private readonly ILogger<SentenceAwareChunkingStrategy>? _logger;
-    private static readonly Regex SentenceEndRegex = new Regex(@"[.!?]+\s+", RegexOptions.Compiled);
+    // Matches a sentence as a run of non-terminator characters followed by one or more
+    // terminators (. ! ?). The trailing whitespace is consumed but not captured into the
+    // sentence so that punctuation is preserved while leading/trailing spaces are trimmed.
+    private static readonly Regex SentenceRegex = new Regex(@"[^.!?]+[.!?]+|[^.!?]+$", RegexOptions.Compiled);
 
     #endregion
 
@@ -51,8 +54,13 @@ public class SentenceAwareChunkingStrategy : IChunkingStrategy
             return Task.FromResult<IReadOnlyList<IChunk>>(chunks);
         }
 
-        var sentences = SentenceEndRegex.Split(text)
+        // Segment into sentences while PRESERVING the terminal punctuation. Any sentence
+        // longer than ChunkSize on its own is split into ChunkSize-bounded pieces so it
+        // does not produce a single oversized chunk.
+        var sentences = SentenceRegex.Matches(text)
+            .Select(m => m.Value.Trim())
             .Where(s => !string.IsNullOrWhiteSpace(s))
+            .SelectMany(SplitOversizedSentence)
             .ToList();
 
         _logger?.LogDebug("Document {DocumentId} split into {SentenceCount} sentences", document.DocumentId, sentences.Count);
@@ -129,19 +137,51 @@ public class SentenceAwareChunkingStrategy : IChunkingStrategy
 
         if (currentChunk.Count > 0)
         {
-            string chunkText = string.Join(" ", currentChunk);
-            chunks.Add(Chunk.Create(
-                chunkText,
-                chunkIndex,
-                document.DocumentId,
-                new Dictionary<string, object>(document.Metadata)
-            ));
+            string chunkText = string.Join(" ", currentChunk).Trim();
+            if (!string.IsNullOrWhiteSpace(chunkText))
+            {
+                chunks.Add(Chunk.Create(
+                    chunkText,
+                    chunkIndex,
+                    document.DocumentId,
+                    new Dictionary<string, object>(document.Metadata)
+                ));
+            }
         }
 
-        _logger?.LogInformation("Document {DocumentId} split into {ChunkCount} chunks using sentence-aware strategy", 
+        _logger?.LogInformation("Document {DocumentId} split into {ChunkCount} chunks using sentence-aware strategy",
             document.DocumentId, chunks.Count);
 
         return Task.FromResult<IReadOnlyList<IChunk>>(chunks);
+    }
+
+    #endregion
+
+    #region Private-Methods
+
+    /// <summary>
+    /// Splits a single sentence that exceeds the configured chunk size into
+    /// ChunkSize-bounded pieces. Sentences that fit are returned unchanged.
+    /// </summary>
+    /// <param name="sentence">The sentence to split if oversized.</param>
+    /// <returns>One or more sentence fragments, none longer than ChunkSize.</returns>
+    private IEnumerable<string> SplitOversizedSentence(string sentence)
+    {
+        int chunkSize = _options.ChunkSize;
+
+        if (chunkSize <= 0 || sentence.Length <= chunkSize)
+        {
+            yield return sentence;
+            yield break;
+        }
+
+        for (int start = 0; start < sentence.Length; start += chunkSize)
+        {
+            int length = Math.Min(chunkSize, sentence.Length - start);
+            var piece = sentence.Substring(start, length).Trim();
+            if (!string.IsNullOrWhiteSpace(piece))
+                yield return piece;
+        }
     }
 
     #endregion

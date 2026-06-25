@@ -17,6 +17,47 @@ public class QueryResult
     /// </summary>
     public RetrievalMetadata? Metadata { get; set; }
 
+    /// <summary>
+    /// Gets or sets the generated natural-language answer. Populated by <c>AnswerAsync</c>;
+    /// <c>null</c> for retrieval-only <c>QueryAsync</c> calls.
+    /// </summary>
+    public string? Answer { get; set; }
+
+    /// <summary>
+    /// Gets or sets metadata about the answer-generation step, when an answer was generated.
+    /// </summary>
+    public GenerationMetadata? Generation { get; set; }
+
+    #endregion
+}
+
+/// <summary>
+/// Contains metadata about the answer-generation step.
+/// </summary>
+public class GenerationMetadata
+{
+    #region Public-Members
+
+    /// <summary>
+    /// Gets or sets the model that produced the answer.
+    /// </summary>
+    public string? Model { get; set; }
+
+    /// <summary>
+    /// Gets or sets the number of prompt (input) tokens consumed, if reported.
+    /// </summary>
+    public int? PromptTokens { get; set; }
+
+    /// <summary>
+    /// Gets or sets the number of completion (output) tokens produced, if reported.
+    /// </summary>
+    public int? CompletionTokens { get; set; }
+
+    /// <summary>
+    /// Gets or sets the reason generation stopped, if reported.
+    /// </summary>
+    public string? FinishReason { get; set; }
+
     #endregion
 }
 

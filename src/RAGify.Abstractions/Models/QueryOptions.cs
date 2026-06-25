@@ -12,5 +12,11 @@ public class QueryOptions
     /// </summary>
     public RetrievalOptions Retrieval { get; set; } = new();
 
+    /// <summary>
+    /// Gets or sets the generation options used by <c>AnswerAsync</c> / <c>StreamAnswerAsync</c>.
+    /// Ignored by retrieval-only <c>QueryAsync</c>.
+    /// </summary>
+    public GenerationOptions? Generation { get; set; }
+
     #endregion
 }

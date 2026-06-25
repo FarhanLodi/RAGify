@@ -215,19 +215,24 @@ public class QdrantVectorStore : IVectorStore
     }
 
     /// <summary>
-    /// Clears all vectors from the store.
+    /// Clears all vectors from the store by deleting the collection and recreating it.
     /// </summary>
     public async Task ClearAsync(CancellationToken cancellationToken = default)
     {
+        await _initSemaphore.WaitAsync(cancellationToken);
         try
         {
+            // Delete the existing collection. A 404 (collection does not exist) is
+            // acceptable here; the subsequent create will (re)establish it.
             await _httpClient.DeleteAsync($"{_baseUrl}/collections/{_collectionName}", cancellationToken);
-            _initSemaphore.Release();
-            await EnsureCollectionExistsAsync(cancellationToken);
+
+            // Recreate the collection. Use the non-locking helper because we already
+            // hold the init semaphore (calling EnsureCollectionExistsAsync would deadlock).
+            await CreateCollectionAsync(cancellationToken);
         }
-        catch
+        finally
         {
-            // Collection might not exist, ignore
+            _initSemaphore.Release();
         }
     }
 
@@ -260,28 +265,38 @@ public class QdrantVectorStore : IVectorStore
         try
         {
             var response = await _httpClient.GetAsync($"{_baseUrl}/collections/{_collectionName}", cancellationToken);
-            
+
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                var createRequest = new
-                {
-                    vectors = new
-                    {
-                        size = _vectorSize,
-                        distance = "Cosine"
-                    }
-                };
-
-                var json = JsonSerializer.Serialize(createRequest);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-                var createResponse = await _httpClient.PutAsync($"{_baseUrl}/collections/{_collectionName}", content, cancellationToken);
-                createResponse.EnsureSuccessStatusCode();
+                await CreateCollectionAsync(cancellationToken);
             }
         }
         finally
         {
             _initSemaphore.Release();
         }
+    }
+
+    /// <summary>
+    /// Issues the create-collection PUT. This helper does NOT acquire the init
+    /// semaphore, so callers must already hold it (or be certain no concurrent
+    /// initialization is occurring) to avoid races.
+    /// </summary>
+    private async Task CreateCollectionAsync(CancellationToken cancellationToken)
+    {
+        var createRequest = new
+        {
+            vectors = new
+            {
+                size = _vectorSize,
+                distance = "Cosine"
+            }
+        };
+
+        var json = JsonSerializer.Serialize(createRequest);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var createResponse = await _httpClient.PutAsync($"{_baseUrl}/collections/{_collectionName}", content, cancellationToken);
+        createResponse.EnsureSuccessStatusCode();
     }
 
     #endregion

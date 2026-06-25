@@ -7,7 +7,7 @@
     
     <!-- NuGet Package Metadata -->
     <PackageId>RAGify.Core</PackageId>
-    <Version>1.0.0</Version>
+    <Version>2.0.0</Version>
     <Authors>Farhan Lodi</Authors>
     <Product>RAGify</Product>
     <Description>Core domain models and shared utilities for RAGify. Contains common data structures, models, and helper classes used across all RAGify components including document models, chunk metadata, embedding vectors, and retrieval results.</Description>

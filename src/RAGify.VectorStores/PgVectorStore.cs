@@ -1,3 +1,4 @@
+using System.Globalization;
 using Npgsql;
 using RAGify.Abstractions;
 using RAGify.Core;
@@ -48,7 +49,7 @@ public class PgVectorStore : IVectorStore
         await EnsureTableExistsAsync(cancellationToken);
 
         var normalized = VectorMath.Normalize(vector);
-        var vectorString = string.Join(",", normalized.Select(v => v.ToString("F6")));
+        var vectorString = string.Join(",", normalized.Select(v => v.ToString("F6", CultureInfo.InvariantCulture)));
         var metadataJson = System.Text.Json.JsonSerializer.Serialize(metadata);
 
         await using var connection = new NpgsqlConnection(_connectionString);
@@ -80,7 +81,7 @@ public class PgVectorStore : IVectorStore
             foreach (var vectorData in vectors)
             {
                 var normalized = VectorMath.Normalize(vectorData.Vector);
-                var vectorString = string.Join(",", normalized.Select(v => v.ToString("F6")));
+                var vectorString = string.Join(",", normalized.Select(v => v.ToString("F6", CultureInfo.InvariantCulture)));
                 var metadataJson = System.Text.Json.JsonSerializer.Serialize(vectorData.Metadata);
 
                 var sql = _options.FormatQuery(_options.UpsertQuery, _tableName);
@@ -145,7 +146,7 @@ public class PgVectorStore : IVectorStore
         await EnsureTableExistsAsync(cancellationToken);
 
         var normalizedQuery = VectorMath.Normalize(queryVector);
-        var queryVectorString = string.Join(",", normalizedQuery.Select(v => v.ToString("F6")));
+        var queryVectorString = string.Join(",", normalizedQuery.Select(v => v.ToString("F6", CultureInfo.InvariantCulture)));
 
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
