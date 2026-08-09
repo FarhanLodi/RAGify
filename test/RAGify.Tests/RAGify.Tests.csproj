@@ -20,13 +20,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\RAGify.Abstractions\RAGify.Abstractions.csproj" />
-    <ProjectReference Include="..\..\src\RAGify.Core\RAGify.Core.csproj" />
-    <ProjectReference Include="..\..\src\RAGify.Chunking\RAGify.Chunking.csproj" />
-    <ProjectReference Include="..\..\src\RAGify.Embeddings\RAGify.Embeddings.csproj" />
-    <ProjectReference Include="..\..\src\RAGify.VectorStores\RAGify.VectorStores.csproj" />
-    <ProjectReference Include="..\..\src\RAGify.Ingestion\RAGify.Ingestion.csproj" />
-    <ProjectReference Include="..\..\src\RAGify.Retrieval\RAGify.Retrieval.csproj" />
     <ProjectReference Include="..\..\src\RAGify\RAGify.csproj" />
   </ItemGroup>
 

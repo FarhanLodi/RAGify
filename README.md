@@ -14,93 +14,42 @@
 
 **Ingest → Chunk → Embed → Store → Retrieve → Rerank → Generate** — every stage swappable, every provider pluggable.
 
-[**Quick Start**](#-quick-start) · [**Features**](#-features) · [**Providers**](#-providers) · [**Generation**](#-answer-generation) · [**Examples**](#-examples) · [**Docs**](#-documentation)
+[Install](#-install) · [Quick Start](#-quick-start) · [How It Works](#-how-it-works) · [Generation](#-answer-generation) · [Providers](#-providers) · [Configuration](#-configuration) · [Architecture](#-architecture) · [Contributing](#-contributing)
 
 </div>
 
 ---
 
-## ✨ Why RAGify?
-
-RAGify is a modular, clean‑architecture framework that turns the full Retrieval‑Augmented Generation pipeline into a few lines of fluent C#. It is **the complete loop** — not just retrieval — so you can go from raw documents to a grounded, cited answer without gluing five libraries together.
-
-- 🔌 **Provider‑agnostic** — 8 embedding providers, 5 vector stores, 4 LLM providers, 2 rerankers. Swap any of them by changing one line.
-- 🧠 **The "G" in RAG, built in** — generate grounded, cited answers with OpenAI, Azure OpenAI, Anthropic (Claude), or local Ollama. Streaming included.
-- 🧩 **Clean Architecture** — small, focused interfaces (`IEmbeddingProvider`, `IVectorStore`, `IReranker`, `ILlmProvider`, …) you can implement yourself.
-- ⚡ **Production‑minded** — embedding cache, retry/backoff, batching, metadata filtering, deduplication, dynamic Top‑K, and first‑class logging.
-- 🏗️ **DI‑ready** — `services.AddRagify(...)` and you're wired into ASP.NET Core.
-- 🎯 **One package, batteries included** — `dotnet add package RAGify` gives you everything; individual modules are also published for fine‑grained use.
-
-```mermaid
-flowchart LR
-    A[📄 Documents<br/>PDF · DOCX · XLSX · HTML<br/>MD · CSV · JSON · URL] --> B[✂️ Chunking]
-    B --> C[🔢 Embeddings<br/>+ cache + retry]
-    C --> D[(💾 Vector Store)]
-    Q[❓ Query] --> E[🔍 Retrieve]
-    D --> E
-    E --> F[🥇 Rerank]
-    F --> G[🤖 Generate<br/>grounded + cited]
-    G --> R[💬 Answer]
-```
-
----
-
-## 📋 Table of Contents
-
-- [Features](#-features)
-- [Installation](#-installation)
-- [Quick Start](#-quick-start)
-- [Answer Generation](#-answer-generation)
-- [Providers](#-providers)
-- [Chunking Strategies](#-chunking-strategies)
-- [Document Ingestion](#-document-ingestion)
-- [Reranking](#-reranking)
-- [Embedding Cache & Resilience](#-embedding-cache--resilience)
-- [Dependency Injection](#-dependency-injection)
-- [Configuration](#-configuration)
-- [Examples](#-examples)
-- [Documentation](#-documentation)
-- [Best Practices](#-best-practices)
-- [Troubleshooting](#-troubleshooting)
-- [Roadmap](#-roadmap)
-- [Contributing](#-contributing)
-- [License](#-license)
-
----
-
-## 🚀 Features
-
-| Stage | What you get |
-|-------|--------------|
-| 🗂️ **Ingestion** | PDF, Word (.docx), Excel (.xlsx), HTML, **Markdown**, **CSV/TSV**, **JSON/JSONL**, plain text, and **web pages by URL**. Files, streams, or raw text. |
-| ✂️ **Chunking** | Fixed‑size, Sentence‑aware, Sliding‑window, **Recursive**, **Markdown‑aware**, and **Token‑aware** strategies — all configurable and extensible. |
-| 🔢 **Embeddings** | 8 providers: OpenAI, Azure OpenAI, Ollama, ONNX, Hugging Face, Cohere, VoyageAI, Google Gemini. Async + batch, auto‑normalized. |
-| 💾 **Vector Stores** | 5 stores: In‑Memory, Qdrant, PgVector, Pinecone, Weaviate. Metadata filtering, Top‑K, thresholds, batch ops. |
-| 🔍 **Retrieval** | Query‑type detection, dynamic Top‑K, multi‑signal deduplication, low‑value filtering, similarity thresholds. |
-| 🥇 **Reranking** | Cohere Rerank API + a dependency‑free local BM25 lexical reranker. Pluggable via `IReranker`. |
-| 🤖 **Generation** | Grounded, **cited** answers via OpenAI, Azure OpenAI, Anthropic (Claude), or Ollama — with **token‑by‑token streaming**. |
-| ⚡ **Performance** | Embedding cache, HTTP retry/backoff (429/5xx + `Retry-After`), automatic sub‑batching. |
-| 🧩 **Hosting** | `AddRagify(...)` for `Microsoft.Extensions.DependencyInjection`, plus full `ILogger` support. |
-
----
-
-## 📦 Installation
+## 📦 Install
 
 ```bash
-# Everything in one package (recommended) — includes generation, reranking, caching & DI
 dotnet add package RAGify
 ```
 
-> **Prefer fine‑grained packages?** The core modules are published separately too:
-> `RAGify.Abstractions` · `RAGify.Core` · `RAGify.Ingestion` · `RAGify.Chunking` · `RAGify.Embeddings` · `RAGify.VectorStores` · `RAGify.Retrieval`
+That is the only package. RAGify ships as **one NuGet package and one assembly** — ingestion, chunking, embeddings, vector stores, retrieval, reranking, generation, and DI included.
 
 **Requirements:** .NET 10.0+ · Windows, Linux, or macOS · (optional) [Ollama](https://ollama.ai) for local models · ONNX Runtime is included automatically.
+
+<details>
+<summary><b>Upgrading from 2.x?</b></summary>
+
+RAGify used to ship as eight packages. As of **3.0.0** the seven secondary packages — `RAGify.Abstractions`, `RAGify.Core`, `RAGify.Ingestion`, `RAGify.Chunking`, `RAGify.Embeddings`, `RAGify.VectorStores`, `RAGify.Retrieval` — are discontinued and folded into `RAGify`.
+
+Migration is one line of XML. Delete every `RAGify.*` `<PackageReference>` and keep a single one:
+
+```xml
+<PackageReference Include="RAGify" Version="3.0.0" />
+```
+
+**Your C# does not change.** The namespaces are untouched — `RAGify.Abstractions`, `RAGify.Chunking`, `RAGify.Embeddings` and friends all still exist inside the single assembly, so every existing `using` statement, type, and method signature compiles exactly as before.
+
+</details>
 
 ---
 
 ## ⚡ Quick Start
 
-### Full RAG — retrieve **and** generate a grounded answer
+Retrieve **and** generate a grounded answer:
 
 ```csharp
 using RAGify;
@@ -121,13 +70,14 @@ await rag.IngestAsync(Document.FromText(
 // Ask a question → get a grounded, cited answer
 var result = await rag.AnswerAsync("What is RAGify?");
 
-Console.WriteLine(result.Answer);                 // 💬 natural-language answer
+Console.WriteLine(result.Answer);                 // natural-language answer
 Console.WriteLine($"Model: {result.Generation?.Model}");
-foreach (var ctx in result.Context)              // 📚 the sources it was grounded in
+foreach (var ctx in result.Context)              // the sources it was grounded in
     Console.WriteLine($"  [{ctx.Similarity:F3}] {ctx.Source}");
 ```
 
-### 100% local — no API keys (Ollama)
+<details>
+<summary><b>Fully local — no API keys (Ollama)</b></summary>
 
 ```csharp
 var rag = new RagifyConfig()
@@ -138,7 +88,10 @@ var rag = new RagifyConfig()
     .Build();
 ```
 
-### Retrieval only (no LLM)
+</details>
+
+<details>
+<summary><b>Retrieval only (no LLM)</b></summary>
 
 ```csharp
 var result = await rag.QueryAsync("What is the main topic?");
@@ -146,11 +99,49 @@ foreach (var ctx in result.Context)
     Console.WriteLine($"[{ctx.Similarity:F3}] {ctx.Chunk.Text}");
 ```
 
+</details>
+
+---
+
+## 🔄 How It Works
+
+```mermaid
+flowchart LR
+    A[📄 Documents<br/>PDF · DOCX · XLSX · HTML<br/>MD · CSV · JSON · URL] --> B[✂️ Chunking]
+    B --> C[🔢 Embeddings<br/>+ cache + retry]
+    C --> D[(💾 Vector Store)]
+    Q[❓ Query] --> E[🔍 Retrieve]
+    D --> E
+    E --> F[🥇 Rerank]
+    F --> G[🤖 Generate<br/>grounded + cited]
+    G --> R[💬 Answer]
+```
+
+RAGify turns that full pipeline into a few lines of fluent C#. It is **the complete loop** — not just retrieval — so you go from raw documents to a grounded, cited answer without gluing five libraries together.
+
+- **Provider‑agnostic** — 8 embedding providers, 5 vector stores, 4 LLM providers, 2 rerankers. Swap any of them by changing one line.
+- **The "G" in RAG, built in** — grounded, cited answers via OpenAI, Azure OpenAI, Anthropic (Claude), or local Ollama. Streaming included.
+- **Clean architecture** — small, focused interfaces (`IEmbeddingProvider`, `IVectorStore`, `IReranker`, `ILlmProvider`, …) you can implement yourself.
+- **Production‑minded** — embedding cache, retry/backoff, batching, metadata filtering, deduplication, dynamic Top‑K, and first‑class logging.
+- **DI‑ready** — `services.AddRagify(...)` and you are wired into ASP.NET Core.
+
+| Stage | What you get |
+|-------|--------------|
+| **Ingestion** | PDF, Word (.docx), Excel (.xlsx), HTML, Markdown, CSV/TSV, JSON/JSONL, plain text, and web pages by URL. Files, streams, or raw text. |
+| **Chunking** | Fixed‑size, Sentence‑aware, Sliding‑window, Recursive, Markdown‑aware, and Token‑aware strategies — all configurable and extensible. |
+| **Embeddings** | 8 providers: OpenAI, Azure OpenAI, Ollama, ONNX, Hugging Face, Cohere, VoyageAI, Google Gemini. Async + batch, auto‑normalized. |
+| **Vector Stores** | 5 stores: In‑Memory, Qdrant, PgVector, Pinecone, Weaviate. Metadata filtering, Top‑K, thresholds, batch ops. |
+| **Retrieval** | Query‑type detection, dynamic Top‑K, multi‑signal deduplication, low‑value filtering, similarity thresholds. |
+| **Reranking** | Cohere Rerank API + a dependency‑free local BM25 lexical reranker. Pluggable via `IReranker`. |
+| **Generation** | Grounded, cited answers via OpenAI, Azure OpenAI, Anthropic (Claude), or Ollama — with token‑by‑token streaming. |
+| **Performance** | Embedding cache, HTTP retry/backoff (429/5xx + `Retry-After`), automatic sub‑batching. |
+| **Hosting** | `AddRagify(...)` for `Microsoft.Extensions.DependencyInjection`, plus full `ILogger` support. |
+
 ---
 
 ## 🤖 Answer Generation
 
-RAGify completes the RAG loop. Configure any `ILlmProvider` and call `AnswerAsync` for a grounded answer or `StreamAnswerAsync` for streaming.
+Configure any `ILlmProvider`, then call `AnswerAsync` for a grounded answer or `StreamAnswerAsync` for streaming.
 
 ```csharp
 // Pick a chat provider
@@ -161,14 +152,14 @@ RAGify completes the RAG loop. Configure any `ILlmProvider` and call `AnswerAsyn
 .WithLlm(myCustomLlmProvider)                          // your own ILlmProvider
 ```
 
-**Stream tokens** as they're generated:
+Stream tokens as they are generated:
 
 ```csharp
 await foreach (var token in rag.StreamAnswerAsync("Explain RAGify in detail"))
     Console.Write(token);
 ```
 
-**Customize** the system prompt, temperature, and citations:
+Customize the system prompt, temperature, and citations:
 
 ```csharp
 var result = await rag.AnswerAsync("What is RAGify?", new QueryOptions
@@ -184,13 +175,13 @@ var result = await rag.AnswerAsync("What is RAGify?", new QueryOptions
 });
 ```
 
-> `QueryResult` exposes `Answer`, `Generation` (model + token usage), and the retrieved `Context`, so you always know exactly what grounded the answer.
+`QueryResult` exposes `Answer`, `Generation` (model + token usage), and the retrieved `Context`, so you always know exactly what grounded the answer.
 
 ---
 
 ## 🔌 Providers
 
-### 🔢 Embedding Providers (8)
+### Embedding providers (8)
 
 | Provider | Example models | Best for |
 |----------|----------------|----------|
@@ -220,7 +211,7 @@ var result = await rag.AnswerAsync("What is RAGify?", new QueryOptions
 
 </details>
 
-### 💾 Vector Stores (5)
+### Vector stores (5)
 
 | Store | Type | Best for |
 |-------|------|----------|
@@ -246,7 +237,7 @@ You can also pass any custom `IVectorStore` via `.WithVectorStore(store)`. See [
 
 </details>
 
-### 🤖 LLM Providers (4) · 🥇 Rerankers (2)
+### LLM providers (4) and rerankers (2)
 
 | LLM (generation) | Reranker |
 |------------------|----------|
@@ -254,16 +245,18 @@ You can also pass any custom `IVectorStore` via `.WithVectorStore(store)`. See [
 
 ---
 
-## ✂️ Chunking Strategies
+## 🧩 Pipeline Stages
+
+### Chunking
 
 | Strategy | `ChunkingStrategyType` | Description |
 |----------|------------------------|-------------|
 | Fixed Size | `FixedSize` | Character windows with configurable overlap |
 | Sentence‑Aware | `SentenceAware` | Respects sentence boundaries (keeps punctuation) |
 | Sliding Window | `SlidingWindow` | Overlapping windows for context preservation |
-| **Recursive** | `Recursive` | Splits by paragraph → line → sentence → word to fit the size limit |
-| **Markdown** | `Markdown` | Splits on headings, keeps code fences intact |
-| **Token‑Aware** | `TokenAware` | Sizes chunks by estimated tokens (pluggable tokenizer) |
+| Recursive | `Recursive` | Splits by paragraph → line → sentence → word to fit the size limit |
+| Markdown | `Markdown` | Splits on headings, keeps code fences intact |
+| Token‑Aware | `TokenAware` | Sizes chunks by estimated tokens (pluggable tokenizer) |
 
 ```csharp
 .WithChunking(ChunkingStrategyType.Recursive, new ChunkingOptions
@@ -274,11 +267,9 @@ You can also pass any custom `IVectorStore` via `.WithVectorStore(store)`. See [
 })
 ```
 
----
+### Document ingestion
 
-## 🗂️ Document Ingestion
-
-`WithDefaultExtractors()` handles **PDF, Word, Excel, HTML, Markdown, CSV/TSV, JSON/JSONL, and plain text**. Web pages are ingested by URL.
+`WithDefaultExtractors()` handles PDF, Word, Excel, HTML, Markdown, CSV/TSV, JSON/JSONL, and plain text. Web pages are ingested by URL.
 
 ```csharp
 var ingestion = DocumentIngestionService.CreateDefault();
@@ -286,7 +277,7 @@ var ingestion = DocumentIngestionService.CreateDefault();
 var fromFile     = await ingestion.IngestFromFileAsync("report.pdf");
 var fromMarkdown = await ingestion.IngestFromFileAsync("README.md");
 var fromCsv      = await ingestion.IngestFromFileAsync("data.csv");
-var fromWeb      = await ingestion.IngestFromUrlAsync("https://example.com/article");   // 🌐
+var fromWeb      = await ingestion.IngestFromUrlAsync("https://example.com/article");
 
 await rag.IngestAsync(fromWeb);
 
@@ -294,9 +285,7 @@ await rag.IngestAsync(fromWeb);
 await rag.IngestBatchAsync(documents);
 ```
 
----
-
-## 🥇 Reranking
+### Reranking
 
 Add a second‑stage reranker to refine result ordering after vector search:
 
@@ -306,9 +295,7 @@ Add a second‑stage reranker to refine result ordering after vector search:
 .WithReranker(myCustomReranker)           // any IReranker
 ```
 
----
-
-## ⚡ Embedding Cache & Resilience
+### Embedding cache and resilience
 
 Cut API cost/latency and harden network calls:
 
@@ -328,7 +315,7 @@ Need provider‑side batch limits respected? Wrap any provider with `BatchingEmb
 
 ---
 
-## 🧩 Dependency Injection
+## 🏗️ Dependency Injection
 
 ```csharp
 using Microsoft.Extensions.DependencyInjection;
@@ -465,29 +452,44 @@ var rag = new RagifyConfig()
 
 </details>
 
+<details>
+<summary><b>Console test app</b></summary>
+
+```bash
+ollama pull all-minilm:latest    # if using Ollama
+dotnet run --project test/RAGify.ConsoleTest
+```
+
+Interactive harness for ingesting files/text, browsing chunks, querying, and tuning Top‑K / thresholds at runtime, with live logging.
+
+</details>
+
 ---
 
-## 📚 Documentation
+## 🏛️ Architecture
 
-### Architecture
-
-RAGify follows Clean Architecture as a set of NuGet‑ready libraries:
+RAGify follows clean architecture inside a single project. Each layer is a folder — and a namespace — rather than a separate package:
 
 ```
 RAGify.sln
 ├── src/
-│   ├── RAGify.Abstractions   # Interfaces & contracts (no dependencies)
-│   ├── RAGify.Core           # Domain models & utilities (VectorMath, TextCleanup)
-│   ├── RAGify                # Main package — orchestrator, builder, generation, reranking, DI
-│   ├── RAGify.Ingestion      # Document extractors (PDF/Word/Excel/HTML/MD/CSV/JSON/Web)
-│   ├── RAGify.Chunking       # Chunking strategies
-│   ├── RAGify.Embeddings     # 8 embedding providers + cache/resilience/batching
-│   ├── RAGify.VectorStores   # 5 vector stores
-│   └── RAGify.Retrieval      # Retrieval engine (+ reranking hook)
+│   └── RAGify/                 # The one package & assembly — everything lives here
+│       ├── Abstractions/       # Interfaces & contracts (no dependencies)
+│       ├── Core/               # Domain models & utilities (VectorMath, TextCleanup)
+│       ├── Ingestion/          # Document extractors (PDF/Word/Excel/HTML/MD/CSV/JSON/Web)
+│       ├── Chunking/           # Chunking strategies
+│       ├── Embeddings/         # 8 embedding providers + cache/resilience/batching
+│       ├── VectorStores/       # 5 vector stores
+│       ├── Retrieval/          # Retrieval engine (+ reranking hook)
+│       ├── Generation/         # LLM chat providers + grounded prompt builder
+│       ├── Reranking/          # Cohere Rerank + local BM25 lexical reranker
+│       └── Ragify.cs           # Orchestrator, RagifyConfig builder, DI extensions
 └── test/
-    ├── RAGify.ConsoleTest    # Interactive console harness
-    └── RAGify.Tests          # Unit & integration test suite
+    ├── RAGify.ConsoleTest/     # Interactive console harness
+    └── RAGify.Tests/           # Unit & integration test suite
 ```
+
+Namespaces mirror the folders — `RAGify.Abstractions`, `RAGify.Core`, `RAGify.Chunking`, `RAGify.Embeddings`, `RAGify.Ingestion`, `RAGify.Retrieval`, `RAGify.VectorStores`, `RAGify.Generation`, `RAGify.Reranking` — so the layering stays explicit in code even though it all compiles into one assembly.
 
 **Dependency flow:** `Abstractions ← Core ← {Ingestion, Chunking, Embeddings, VectorStores, Retrieval} ← RAGify`.
 
@@ -513,15 +515,6 @@ var rag = new RagifyConfig()
     .WithLlm(new MyLlmProvider())
     .Build();
 ```
-
-### Console Test App
-
-```bash
-ollama pull all-minilm:latest    # if using Ollama
-dotnet run --project test/RAGify.ConsoleTest
-```
-
-Interactive harness for ingesting files/text, browsing chunks, querying, and tuning Top‑K / thresholds at runtime, with live logging.
 
 ---
 
@@ -556,13 +549,13 @@ Interactive harness for ingesting files/text, browsing chunks, querying, and tun
 - [ ] More providers (Mistral, Jina, Bedrock) and stores (Redis, Milvus, Azure AI Search)
 - [ ] OpenTelemetry metrics & tracing
 
-Have an idea? [Open an issue](https://github.com/FarhanLodi/RAGify/issues) or a PR. ⭐ the repo to follow along.
+Have an idea? [Open an issue](https://github.com/FarhanLodi/RAGify/issues) or a PR.
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome!
+Contributions are welcome.
 
 1. Fork & create a feature branch: `git checkout -b feature/amazing-feature`
 2. Follow the existing style (file‑scoped namespaces, XML docs, one class per file, `Models/` folders)
@@ -576,15 +569,35 @@ Contributions are welcome!
 
 Licensed under the **MIT License** — see [LICENSE](LICENSE).
 
-## 🙏 Acknowledgments
-
-Built with [.NET](https://dotnet.microsoft.com/), inspired by modern RAG architectures, and thankful to every embedding/LLM provider team for their excellent APIs.
+**Acknowledgments** — built with [.NET](https://dotnet.microsoft.com/), inspired by modern RAG architectures, and thankful to every embedding/LLM provider team for their excellent APIs.
 
 ## 💖 Support
 
 If RAGify saves you time, consider supporting development:
 
-💳 **PayPal** — [paypal.me/FarhanLodi](https://paypal.me/FarhanLodi) · 📱 **UPI (India)** — `farhanlodi5@oksbi`
+- 💳 **PayPal** — [paypal.me/FarhanLodi](https://paypal.me/FarhanLodi)
+- 📱 **UPI (India)** — `farhanlodi5@oksbi`
+- 🏦 **Bank transfer (USD)** — details below
+
+<details>
+<summary><b>USD bank transfer details (Wise)</b></summary>
+
+USD account details for **Farhan Lodi** on Wise. Sending from a bank in the US? Use these details for a domestic transfer. Sending from anywhere else? Make an international SWIFT transfer.
+
+| Field | Value |
+|-------|-------|
+| Name | Farhan Lodi |
+| Account type | Deposit |
+| Routing number (wire and ACH) | `084009519` |
+| Account number | `420927686563885` |
+| SWIFT/BIC | `TRWIUS35XXX` |
+| Bank address | Wise US Inc, 108 W 13th St, Wilmington, DE, 19801, United States |
+
+Use the routing and account numbers when sending from the US, and the SWIFT/BIC when sending from outside the US.
+
+</details>
+
+📧 Need more details, a different payment method, or have a question? Email **[farhanlodi31@gmail.com](mailto:farhanlodi31@gmail.com)**.
 
 <div align="center">
 

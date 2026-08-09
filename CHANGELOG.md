@@ -5,6 +5,41 @@ All notable changes to **RAGify** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-08-09
+
+> One package to rule them all: the eight RAGify packages are now a **single `RAGify` package and a single assembly**.
+> This is a **packaging‑only** change — namespaces and the public API are untouched, so your code compiles as‑is.
+
+### Changed
+- **RAGify now ships as exactly one NuGet package: `RAGify`.** The seven secondary packages have been folded into it and are discontinued.
+- The former sub‑projects now live inside `src/RAGify/` as subfolders (`Abstractions/`, `Core/`, `Chunking/`, `Embeddings/`, `Ingestion/`, `Retrieval/`, `VectorStores/`); their individual `.csproj` files are gone.
+- All third‑party dependencies that previously sat on the sub‑projects are now direct dependencies of the single `RAGify` package: `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.Logging.Abstractions`, `Microsoft.ML.OnnxRuntime`, `DocumentFormat.OpenXml`, `HtmlAgilityPack`, `UglyToad.PdfPig`, `Npgsql`, `Pinecone.Net`, `WeaviateNET`.
+
+### Removed
+- NuGet package `RAGify.Abstractions` — discontinued, now part of `RAGify`.
+- NuGet package `RAGify.Core` — discontinued, now part of `RAGify`.
+- NuGet package `RAGify.Chunking` — discontinued, now part of `RAGify`.
+- NuGet package `RAGify.Embeddings` — discontinued, now part of `RAGify`.
+- NuGet package `RAGify.Ingestion` — discontinued, now part of `RAGify`.
+- NuGet package `RAGify.Retrieval` — discontinued, now part of `RAGify`.
+- NuGet package `RAGify.VectorStores` — discontinued, now part of `RAGify`.
+
+### Breaking Changes
+- **The break is purely at the packaging level.** Projects referencing any `RAGify.*` package will no longer restore, because those package IDs are no longer published.
+- **What is _not_ breaking:** C# namespaces are unchanged. `RAGify.Abstractions`, `RAGify.Core`, `RAGify.Chunking`, `RAGify.Embeddings`, `RAGify.Ingestion`, `RAGify.Retrieval`, `RAGify.VectorStores`, `RAGify.Generation`, and `RAGify.Reranking` all still exist as namespaces inside the single `RAGify` assembly. There are **no `using` directive changes and no API, type, or signature changes** — existing code compiles as‑is.
+
+### Migration
+- Replace every `<PackageReference Include="RAGify.*" />` in your project files with a single reference:
+
+  ```xml
+  <PackageReference Include="RAGify" Version="3.0.0" />
+  ```
+
+- Leave your source code alone — no `using` statements need to change.
+
+### Notes
+- Consumers who previously installed only a narrow sub‑package (e.g. just `RAGify.Chunking`) will now pull the **full dependency set** listed under _Changed_ above, since those dependencies belong to the unified package.
+
 ## [2.0.0] - 2026-06-25
 
 > The release that completes the loop: RAGify now does both **retrieval _and_ generation**.
@@ -77,5 +112,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release: document ingestion (PDF, Word, Excel, HTML, plain text), chunking (Fixed Size, Sentence‑Aware, Sliding Window), 8 embedding providers, 5 vector stores, a retrieval engine, the `RagifyConfig` fluent builder, and `Microsoft.Extensions.Logging` integration.
 
+[3.0.0]: https://github.com/FarhanLodi/RAGify/releases/tag/v3.0.0
 [2.0.0]: https://github.com/FarhanLodi/RAGify/releases/tag/v2.0.0
 [1.0.0]: https://github.com/FarhanLodi/RAGify/releases/tag/v1.0.0
